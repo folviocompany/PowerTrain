@@ -1,0 +1,18 @@
+{
+  "name": "PowerTreino Gustavo",
+  "short_name": "PowerTreino",
+  "description": "Aplicativo pessoal offline para acompanhamento de treino de powerlifting raw.",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#0b0c0f",
+  "theme_color": "#d6a821",
+  "lang": "pt-BR",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
