@@ -52,6 +52,16 @@ http://localhost:8000
 
 O service worker só é registrado fora de `file://`, por regra dos navegadores.
 
+## Deploy na Vercel
+
+O projeto é um site estático sem etapa de build. O arquivo `vercel.json` fixa:
+
+- Build Command: nenhum
+- Output Directory: raiz do projeto (`.`)
+- cache curto para `service-worker.js`
+
+Na Vercel, use o preset `Other` se precisar configurar manualmente. Se houver override no painel da Vercel, deixe o Build Command vazio e o Output Directory como `.`.
+
 ## Como instalar como PWA
 
 1. Execute por servidor local, por exemplo `python -m http.server 8000`.
