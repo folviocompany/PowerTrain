@@ -199,7 +199,7 @@ th { color: var(--muted); font-size: 0.86rem; }
     border-right: 0;
   }
   .brand { display: none; }
-  .nav { grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  .nav { grid-template-columns: repeat(auto-fit, minmax(58px, 1fr)); gap: 4px; }
   .nav button { justify-content: center; padding: 8px 4px; font-size: 0.76rem; min-height: 54px; }
   .app { padding: 18px 14px; }
   .page-head { display: grid; }

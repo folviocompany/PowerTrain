@@ -12,6 +12,7 @@
 
   const routes = [
     ["dashboard", "Dashboard"],
+    ["maximas", "Máximas"],
     ["treino", "Treino"],
     ["historico", "Histórico"],
     ["progressao", "Progressão"],
@@ -69,7 +70,7 @@
     const bw = currentBodyweight();
     const volume = data.sessions.reduce((sum, item) => sum + (item.summary.volume || 0), 0);
     const next = P.getWorkout(data, P.nextWorkoutKey(), data.program.currentWeek);
-    app().innerHTML = head("Dashboard", "Controle pessoal de treino raw com cálculos visíveis, histórico local e funcionamento offline.", `<button class="primary" id="start-workout">Iniciar treino</button>`) + `
+    app().innerHTML = head("Dashboard", "Controle pessoal de treino raw com cálculos visíveis, histórico local e funcionamento offline.", `<div class="toolbar"><button class="ghost" id="edit-maxes">Ajustar máximas</button><button class="primary" id="start-workout">Iniciar treino</button></div>`) + `
       <section class="grid cols-4">
         ${metric("Peso atual", C.formatKg(bw.weight))}
         ${metric("Meta", `${data.profile.targetWeightMin}-${data.profile.targetWeightMax} kg`)}
@@ -94,6 +95,11 @@
       renderNav();
       render();
     });
+    document.getElementById("edit-maxes").addEventListener("click", () => {
+      route = "maximas";
+      renderNav();
+      render();
+    });
     Charts.renderDashboard(data);
   }
 
@@ -112,6 +118,140 @@
       <p>e1RM: <strong>${C.formatKg(lift.e1rm)}</strong></p>
       <p>Training Max (${data.settings.trainingMaxPercent}%): <strong>${C.formatKg(lift.trainingMax)}</strong></p>
       <p class="muted">Variação semanal: ${variation >= 0 ? "+" : ""}${C.formatKg(variation)}</p>
+    </article>`;
+  }
+
+  function maximas() {
+    app().innerHTML = head("Máximas", "Ajuste agachamento, supino e terra em um só lugar. Informe a melhor série recente; o app calcula e1RM, Training Max e cargas do treino.") + `
+      <section class="notice">Use uma série confiável, sem falha e com técnica boa. O Training Max é calculado por ${data.settings.trainingMaxPercent}% do e1RM e arredondado para ${data.settings.increment} kg.</section>
+      <section class="grid cols-3">
+        ${maxCard("squat")}
+        ${maxCard("bench")}
+        ${maxCard("deadlift")}
+      </section>
+      <section class="card">
+        <h2>Configuração rápida</h2>
+        <div class="form-grid">
+          <label>Fórmula de e1RM
+            <select id="max-formula">
+              <option value="epley" ${data.settings.formula === "epley" ? "selected" : ""}>Epley</option>
+              <option value="brzycki" ${data.settings.formula === "brzycki" ? "selected" : ""}>Brzycki</option>
+              <option value="lombardi" ${data.settings.formula === "lombardi" ? "selected" : ""}>Lombardi</option>
+            </select>
+          </label>
+          <label>Training Max (%)
+            <input id="max-tm-percent" type="number" min="80" max="100" value="${h(data.settings.trainingMaxPercent)}">
+          </label>
+          <label>Incremento de carga
+            <select id="max-increment">${[1,1.25,2,2.5,5].map((v) => `<option value="${v}" ${Number(data.settings.increment) === v ? "selected" : ""}>${v} kg</option>`).join("")}</select>
+          </label>
+          <button class="primary" id="save-maxes">Salvar máximas</button>
+          <button class="ghost" id="auto-maxes">Usar melhores do histórico</button>
+        </div>
+      </section>
+      <section class="grid cols-3">
+        ${["squat", "bench", "deadlift"].map((key) => trainingPreview(key)).join("")}
+      </section>`;
+    document.querySelectorAll("[data-max-field]").forEach((field) => field.addEventListener("input", updateMaxPreview));
+    document.getElementById("max-formula").addEventListener("change", updateMaxPreview);
+    document.getElementById("max-tm-percent").addEventListener("input", updateMaxPreview);
+    document.getElementById("max-increment").addEventListener("change", updateMaxPreview);
+    document.getElementById("save-maxes").addEventListener("click", saveMaxes);
+    document.getElementById("auto-maxes").addEventListener("click", useHistoryMaxes);
+    updateMaxPreview();
+  }
+
+  function maxCard(key) {
+    const lift = data.lifts[key];
+    return `<article class="card lift-card" data-max-card="${key}">
+      <h2>${lift.name}</h2>
+      <div class="form-grid">
+        <label>Peso da série
+          <input data-max-field="${key}.weight" type="number" step="0.5" min="0" value="${h(lift.bestWeight || lift.weight)}">
+        </label>
+        <label>Repetições
+          <input data-max-field="${key}.reps" type="number" step="1" min="1" max="12" value="${h(lift.bestReps || lift.reps)}">
+        </label>
+        <label>Data
+          <input data-max-field="${key}.date" type="date" value="${new Date().toISOString().slice(0, 10)}">
+        </label>
+      </div>
+      <div class="grid cols-2" style="margin-top:12px">
+        <div class="metric"><small>e1RM calculado</small><strong data-max-preview="${key}.e1rm"></strong></div>
+        <div class="metric"><small>Training Max</small><strong data-max-preview="${key}.tm"></strong></div>
+      </div>
+      <p class="muted">${lift.manualMax ? "Modo manual ativo: esta máxima atual tem prioridade sobre o histórico." : "Modo automático: usando melhor série do histórico."}</p>
+    </article>`;
+  }
+
+  function readMaxDraft() {
+    const formula = document.getElementById("max-formula").value;
+    const tmPercent = Number(document.getElementById("max-tm-percent").value) || 90;
+    const increment = Number(document.getElementById("max-increment").value) || 2.5;
+    const lifts = {};
+    document.querySelectorAll("[data-max-field]").forEach((field) => {
+      const [key, prop] = field.dataset.maxField.split(".");
+      lifts[key] = lifts[key] || {};
+      lifts[key][prop] = field.type === "number" ? Number(field.value) : field.value;
+    });
+    return { formula, tmPercent, increment, lifts };
+  }
+
+  function updateMaxPreview() {
+    const draft = readMaxDraft();
+    Object.entries(draft.lifts).forEach(([key, lift]) => {
+      const e1rm = C.estimate1RM(lift.weight, lift.reps, draft.formula);
+      const tm = C.trainingMax(e1rm, draft.tmPercent, draft.increment);
+      const e1rmNode = document.querySelector(`[data-max-preview="${key}.e1rm"]`);
+      const tmNode = document.querySelector(`[data-max-preview="${key}.tm"]`);
+      if (e1rmNode) e1rmNode.textContent = C.formatKg(e1rm);
+      if (tmNode) tmNode.textContent = C.formatKg(tm);
+    });
+  }
+
+  function saveMaxes() {
+    const draft = readMaxDraft();
+    data.settings.formula = draft.formula;
+    data.settings.trainingMaxPercent = Math.min(100, Math.max(80, draft.tmPercent));
+    data.settings.increment = draft.increment;
+    Object.entries(draft.lifts).forEach(([key, liftDraft]) => {
+      const lift = data.lifts[key];
+      if (!liftDraft.weight || !liftDraft.reps) return;
+      const e1rm = C.estimate1RM(liftDraft.weight, liftDraft.reps, data.settings.formula);
+      lift.weight = liftDraft.weight;
+      lift.reps = liftDraft.reps;
+      lift.bestWeight = liftDraft.weight;
+      lift.bestReps = liftDraft.reps;
+      lift.e1rm = e1rm;
+      lift.trainingMax = C.trainingMax(e1rm, data.settings.trainingMaxPercent, data.settings.increment);
+      lift.manualMax = true;
+      lift.history = lift.history || [];
+      lift.history.push({ date: liftDraft.date || new Date().toISOString().slice(0, 10), weight: liftDraft.weight, reps: liftDraft.reps, e1rm, source: "manual-max" });
+    });
+    S.save(data);
+    workoutDraft = null;
+    toast("Máximas salvas e cargas de treino atualizadas.");
+    render();
+  }
+
+  function useHistoryMaxes() {
+    if (!confirm("Voltar a calcular as máximas pela melhor série do histórico?")) return;
+    Object.values(data.lifts).forEach((lift) => { lift.manualMax = false; });
+    S.recomputeLifts(data);
+    S.save(data);
+    workoutDraft = null;
+    toast("Máximas automáticas pelo histórico ativadas.");
+    render();
+  }
+
+  function trainingPreview(key) {
+    const lift = data.lifts[key];
+    return `<article class="card">
+      <h3>${lift.name}: cargas usadas no programa</h3>
+      <p>70% do TM: <strong>${C.formatKg(C.workWeight(lift.trainingMax, 70, data.settings.increment))}</strong></p>
+      <p>75% do TM: <strong>${C.formatKg(C.workWeight(lift.trainingMax, 75, data.settings.increment))}</strong></p>
+      <p>80% do TM: <strong>${C.formatKg(C.workWeight(lift.trainingMax, 80, data.settings.increment))}</strong></p>
+      <p>90% do TM: <strong>${C.formatKg(C.workWeight(lift.trainingMax, 90, data.settings.increment))}</strong></p>
     </article>`;
   }
 
@@ -588,6 +728,7 @@
 
   function render() {
     if (route === "dashboard") dashboard();
+    if (route === "maximas") maximas();
     if (route === "treino") treino();
     if (route === "historico") historico();
     if (route === "progressao") progressao();

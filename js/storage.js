@@ -130,6 +130,16 @@
 
   function recomputeLifts(data) {
     Object.values(data.lifts).forEach((lift) => {
+      if (lift.manualMax) {
+        lift.bestWeight = Number(lift.weight) || lift.bestWeight;
+        lift.bestReps = Number(lift.reps) || lift.bestReps;
+        lift.e1rm = estimate1RM(lift.bestWeight, lift.bestReps, data.settings.formula);
+        lift.trainingMax = roundToIncrement(
+          lift.e1rm * (data.settings.trainingMaxPercent / 100),
+          data.settings.increment
+        );
+        return;
+      }
       const best = (lift.history || []).reduce((current, item) => {
         const e1rm = estimate1RM(item.weight, item.reps, data.settings.formula);
         return e1rm > current.e1rm ? { ...item, e1rm } : current;

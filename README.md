@@ -5,6 +5,7 @@ Aplicação web pessoal para acompanhamento de treino de powerlifting raw, em po
 ## O que está implementado
 
 - Dashboard com peso corporal, meta, semana do bloco, e1RM, Training Max, volume e gráficos.
+- Menu dedicado de Máximas para ajustar agachamento, supino e terra de forma simples.
 - Programa inicial de 6 semanas + deload na semana 7, com 4 dias de treino.
 - Cálculos de e1RM por Epley, Brzycki ou Lombardi.
 - Training Max configurável de 80% a 100%.
@@ -18,6 +19,17 @@ Aplicação web pessoal para acompanhamento de treino de powerlifting raw, em po
 - Cadastro de equipamentos com status IPF Approved preenchido pelo usuário.
 - Configurações, importação, exportação, backup e reinício de dados.
 - Manifest e service worker para uso offline quando servido por HTTP local.
+
+## Ajuste rápido das máximas
+
+Use o menu `Máximas` ou o botão `Ajustar máximas` no Dashboard.
+
+1. Informe a melhor série recente de agachamento, supino e terra.
+2. Confira o e1RM calculado e o Training Max na própria tela.
+3. Ajuste fórmula, percentual do Training Max e incremento se precisar.
+4. Clique em `Salvar máximas`.
+
+As máximas salvas manualmente passam a ter prioridade sobre o histórico antigo. Para voltar ao cálculo automático pela melhor série registrada, use `Usar melhores do histórico`.
 
 ## Como executar
 
