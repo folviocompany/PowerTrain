@@ -1,14 +1,15 @@
-const CACHE_NAME = "power-treino-v1";
+const CACHE_NAME = "power-treino-v3";
+const VERSION = "20260719-2";
 const ASSETS = [
   "./",
   "./index.html",
-  "./css/styles.css",
-  "./js/app.js",
-  "./js/calculations.js",
-  "./js/storage.js",
-  "./js/ui.js",
-  "./js/charts.js",
-  "./js/program.js",
+  `./css/styles.css?v=${VERSION}`,
+  `./js/app.js?v=${VERSION}`,
+  `./js/calculations.js?v=${VERSION}`,
+  `./js/storage.js?v=${VERSION}`,
+  `./js/ui.js?v=${VERSION}`,
+  `./js/charts.js?v=${VERSION}`,
+  `./js/program.js?v=${VERSION}`,
   "./manifest.json",
   "./icon.svg",
   "https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"
@@ -32,6 +33,20 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
+  const url = new URL(event.request.url);
+  const isLocal = url.origin === self.location.origin;
+
+  if (isLocal) {
+    event.respondWith(
+      fetch(event.request).then((response) => {
+        const copy = response.clone();
+        caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
+        return response;
+      }).catch(() => caches.match(event.request).then((cached) => cached || caches.match("./index.html")))
+    );
+    return;
+  }
+
   event.respondWith(
     caches.match(event.request).then((cached) => {
       if (cached) return cached;

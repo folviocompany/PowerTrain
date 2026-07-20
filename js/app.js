@@ -2,8 +2,16 @@
   window.addEventListener("DOMContentLoaded", () => {
     window.PowerTreino.UI.init();
     if ("serviceWorker" in navigator && location.protocol !== "file:") {
-      navigator.serviceWorker.register("service-worker.js").catch((error) => {
-        console.warn("Service worker não registrado", error);
+      let refreshing = false;
+      navigator.serviceWorker.addEventListener("controllerchange", () => {
+        if (refreshing) return;
+        refreshing = true;
+        window.location.reload();
+      });
+      navigator.serviceWorker.register("service-worker.js?v=20260719-2").then((registration) => {
+        registration.update();
+      }).catch((error) => {
+        console.warn("Service worker nao registrado", error);
       });
     }
   });
